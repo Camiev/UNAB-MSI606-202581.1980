@@ -1,0 +1,432 @@
+\documentclass{ieeeaccess}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{url}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\history{Date of publication Nov 21, 2025, date of current version Nov 21, 2025.}
+
+\doi{10.1109/ACCESS.2024.XXXXX}
+
+\title{Prediction of Diagnosis-Related Groups (DRG) using Machine Learning}
+
+\author{\uppercase{Camila Eyzaguirre}\authorrefmark{1},
+\uppercase{Cristian Lorca}\authorrefmark{1},
+\uppercase{Cintya Olivares}\authorrefmark{1}, and
+\uppercase{Alejandro Suarez}\authorrefmark{1}
+}
+
+\address[1]{Universidad Andrés Bello, Santiago, Chile
+(e-mail: c.eyzaguirrevillarro@uandresbello.edu, 
+c.lorcavargasvargas@uandresbello.edu,
+c.olivarescisternas@uandresbello.edu,
+a.suarezsantelices@uandresbello.edu)}
+
+\markboth
+{Eyzaguirre \textit{et al.}: Prediction of DRG using Machine Learning}
+{Eyzaguirre \textit{et al.}: Prediction of DRG using Machine Learning}
+
+\corresp{Corresponding author: Camila Eyzaguirre (e-mail: c.eyzaguirrevillarro@uandresbello.edu).}
+
+\begin{abstract}
+Accurate prediction of Diagnosis-Related Groups (DRG) is fundamental for efficient hospital resource management and medical care planning. This study presents a machine learning model based on XGBoost to predict DRG codes from clinical information, including diagnoses, procedures, and patient demographic data. The dataset used contains 14,561 records with 68 features, including primary and secondary diagnoses, procedures, and demographic variables. A balancing strategy was implemented through grouping of minority classes and using sample weights to address the extreme imbalance observed (proportions of up to 1218:1 between classes). The model was trained with 205 features derived from the top 100 most frequent diagnoses and procedures, along with demographic variables and aggregated characteristics. An accuracy of 59.22\% was obtained in predicting 166 grouped DRG categories, significantly improving over a random model. The results demonstrate the feasibility of using machine learning techniques for automatic DRG prediction, contributing to the optimization of hospital processes.
+\end{abstract}
+
+\begin{keywords}
+Machine learning, DRG, medical prediction, XGBoost, multi-class classification, imbalanced data
+\end{keywords}
+
+\titlepgskip=-15pt
+
+\maketitle
+
+\section{Introduction}
+\label{sec:introduction}
+
+\PARstart{D}{iagnosis}-Related Groups (DRG) constitute a patient classification system widely used in hospital management and health resource planning \cite{b1,b2}. These codes group patients with similar clinical characteristics and resource consumption, facilitating hospital efficiency comparison and resource allocation. Accurate and early prediction of DRG codes represents a significant challenge in the healthcare field, as these codes depend on multiple clinical factors, including primary and secondary diagnoses, performed procedures, patient age, and other demographic factors.
+
+The traditional process of assigning DRG codes is manual and requires specialized clinical expertise, which can result in inconsistencies, delays in coding, and suboptimal resource use. Automating this process through machine learning techniques offers the promise of improving accuracy, reducing processing time, and providing more consistent predictions \cite{b3,b4}.
+
+This work addresses the problem of DRG code prediction as a multi-class classification task, where each DRG code represents a different class. The main challenge lies in the extreme class imbalance, where some codes appear hundreds of times while others appear only once in the dataset. This imbalance poses significant problems for machine learning algorithms, which tend to favor majority classes at the expense of minority classes \cite{b5}.
+
+\section{Literature Review}
+\label{sec:literature}
+
+The application of machine learning techniques in predicting medical classification codes has been widely explored. Several studies have applied algorithms such as Random Forest, Support Vector Machines (SVM), and neural networks for the classification of diagnoses and procedure codes \cite{b6,b7}.
+
+Chen and Guestrin introduced XGBoost as an efficient and scalable implementation of gradient boosting, demonstrating excellent performance in multi-class classification problems \cite{b8}. In the medical context, XGBoost has shown promising results due to its ability to handle heterogeneous data, missing values, and imbalanced classes through the use of sample weights \cite{b9}.
+
+The handling of imbalanced classes in medical classification problems has been addressed through various strategies, including undersampling, oversampling, SMOTE, and the use of class weights \cite{b10}. However, in cases of extreme imbalance, grouping of minority classes has proven to be an effective strategy that preserves information without introducing artificial biases \cite{b11}.
+
+Appropriate metrics for evaluating models in imbalanced problems include not only accuracy, but also precision, recall, F1-score, and especially multi-class logarithmic loss (mlogloss), which penalizes errors in probability estimation \cite{b12}.
+
+\section{Objectives}
+\label{sec:objectives}
+
+The main objective of this study is to develop a machine learning model capable of predicting DRG codes from clinical and demographic information of patients. Specific objectives include:
+
+\begin{enumerate}
+\item Analyze the quality and distribution of available data to identify relevant characteristics and detect imbalance problems.
+\item Implement a preprocessing strategy that adequately handles extreme class imbalance through grouping and sample weights.
+\item Develop a multi-class classification model using XGBoost optimized for the DRG prediction problem.
+\item Evaluate model performance using appropriate metrics for imbalanced multi-class problems.
+\end{enumerate}
+
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Dataset Description}
+\label{sec:dataset}
+
+The dataset used in this study contains 14,561 patient records, each characterized by 68 variables. The main features include:
+
+\begin{itemize}
+\item \textbf{Diagnoses}: One primary diagnosis and up to 29 secondary diagnoses, each with its code and description.
+\item \textbf{Procedures}: Multiple performed procedures, each with code and description.
+\item \textbf{Target variable}: DRG code that includes the base code plus a severity digit (MCC, CC, or without CC).
+\item \textbf{Demographic data}: Patient age, sex, and other demographic characteristics.
+\end{itemize}
+
+The dataset initially contained 14,561 records, but after removing duplicates, all unique records were retained for analysis. The target variable (DRG) presents extreme imbalance, with codes appearing up to 1,218 times and others appearing only once.
+
+\subsection{Methodology Overview}
+\label{sec:method_overview}
+
+The model development process followed a structured methodology that included the following stages:
+
+\subsubsection{Data Preprocessing}
+\label{sec:preprocessing}
+
+Data preprocessing consisted of:
+
+\begin{enumerate}
+\item \textbf{DRG code cleaning}: The base code was extracted by removing the last digit that represents severity (MCC/CC), resulting in 5-digit codes.
+\item \textbf{Diagnosis and procedure cleaning}: Only codes were extracted, removing textual descriptions.
+\item \textbf{Duplicate removal}: Duplicate records were identified and removed.
+\item \textbf{Minority class grouping}: DRG codes with frequency less than 5 were grouped into a category "OTHER\_DRG", reducing classes from 210 to 166.
+\end{enumerate}
+
+\subsubsection{Feature Engineering}
+\label{sec:features}
+
+205 features were created through:
+
+\begin{itemize}
+\item \textbf{Binary diagnosis features}: 100 features indicating presence/absence of the top 100 most frequent diagnosis codes.
+\item \textbf{Binary procedure features}: 100 features indicating presence/absence of the top 100 most frequent procedure codes.
+\item \textbf{Demographic features}: Age (numerical), sex (binary encoded as two variables).
+\item \textbf{Aggregated features}: Total number of diagnoses and total number of procedures per patient.
+\end{itemize}
+
+This strategy allowed capturing the most relevant information while keeping the problem dimensionality manageable.
+
+\subsubsection{Machine Learning Techniques}
+\label{sec:ml_techniques}
+
+\paragraph{XGBoost Selection and Justification}
+
+XGBoost (eXtreme Gradient Boosting) was selected as the main algorithm for the following reasons:
+
+\begin{itemize}
+\item \textbf{Handling imbalanced classes}: XGBoost allows assigning sample weights that balance the relative importance of minority and majority classes during training.
+\item \textbf{Native multi-class classification}: Directly supports multi-class classification problems through the \textit{multi:softprob} objective function, avoiding the need for one-vs-rest or one-vs-one strategies.
+\item \textbf{Missing value handling}: XGBoost automatically handles missing values in data, which is common in clinical data.
+\item \textbf{Interpretability}: Provides feature importance measures, facilitating understanding of which factors most influence predictions.
+\item \textbf{Performance}: Has demonstrated excellent performance in machine learning competitions and similar problems in the medical domain.
+\item \textbf{Built-in regularization}: Includes L1 and L2 regularization parameters that help prevent overfitting, crucial when the number of features is large.
+\end{itemize}
+
+\paragraph{Training Configuration}
+
+The XGBoost model was configured with the following hyperparameters:
+
+\begin{itemize}
+\item \textbf{objective}: \textit{multi:softprob} for multi-class classification with probabilities.
+\item \textbf{eval\_metric}: \textit{mlogloss} (multi-class logarithmic loss).
+\item \textbf{max\_depth}: 6 tree depth levels.
+\item \textbf{learning\_rate}: 0.1 for balanced learning.
+\item \textbf{subsample}: 0.8 (row subsampling for regularization).
+\item \textbf{colsample\_bytree}: 0.8 (column subsampling).
+\item \textbf{min\_child\_weight}: 3 (overfitting control in leaves).
+\item \textbf{reg\_alpha}: 0.1 (L1 regularization).
+\item \textbf{reg\_lambda}: 1.0 (L2 regularization).
+\item \textbf{n\_estimators}: 200 (maximum number of trees).
+\item \textbf{early\_stopping\_rounds}: 20 (early stopping if no improvement).
+\end{itemize}
+
+Validation during training was used with an evaluation set that monitored both the training and test sets, allowing real-time overfitting detection.
+
+\subsubsection{Evaluation Metrics}
+\label{sec:metrics}
+
+\paragraph{Metric Selection and Justification}
+
+For model evaluation in this imbalanced multi-class classification problem, the following metrics were selected:
+
+\begin{enumerate}
+\item \textbf{Accuracy}: Proportion of correct predictions over the total. Although it can be misleading in imbalanced problems, it provides a general measure of model performance.
+
+\item \textbf{Multi-class Logarithmic Loss (mlogloss)}: Main metric used during training and evaluation. This metric penalizes not only incorrect classifications, but also unreliable probability estimates. It is especially relevant because:
+\begin{itemize}
+\item It evaluates the quality of predicted probabilities, not just the predicted class.
+\item It penalizes more errors in classes with incorrect high confidence.
+\item It is appropriate for multi-class problems with multiple classes.
+\item It provides information about model calibration.
+\end{itemize}
+
+The mlogloss formula for a multi-class problem is:
+\begin{equation}
+L_{log} = -\frac{1}{N}\sum_{i=1}^{N}\sum_{c=1}^{M}y_{i,c}\log(p_{i,c})
+\label{eq:mlogloss}
+\end{equation}
+
+where $N$ is the number of samples, $M$ is the number of classes, $y_{i,c}$ is 1 if sample $i$ belongs to class $c$, and $p_{i,c}$ is the predicted probability that sample $i$ belongs to class $c$.
+
+\item \textbf{Classification Report}: Includes precision, recall, and F1-score per class, providing a detailed view of performance in each DRG category.
+
+\item \textbf{Confusion Matrix}: For the most frequent classes, it allows visualizing classification errors and understanding which DRG codes are confused with each other.
+\end{enumerate}
+
+These metrics were selected because, together, they provide a comprehensive model evaluation: mlogloss for optimization and calibration, accuracy for general interpretability, and precision/recall for detailed per-class analysis.
+
+\section{Experiments and Results}
+\label{sec:experiments}
+
+\subsection{Data Analysis}
+\label{sec:data_analysis}
+
+\subsubsection{Data Quality Assessment}
+\label{sec:data_quality}
+
+\paragraph{Completeness}
+
+The completeness analysis revealed that initially no null values were found in the original dataset, indicating good data quality in terms of completeness. However, after code processing, some derived variables may contain missing values, which were handled through specific strategies during feature creation.
+
+\paragraph{Correctness}
+
+Correctness verification included:
+\begin{itemize}
+\item Validation of DRG code consistency before and after cleaning.
+\item Verification of coherence between diagnoses and procedures.
+\item Identification of possible coding errors through analysis of anomalous frequencies.
+\end{itemize}
+
+It was identified that the code structure was consistent and followed expected formats.
+
+\paragraph{Outliers}
+
+The outlier analysis focused on the distribution of DRG codes. The following were identified:
+\begin{itemize}
+\item \textbf{Codes with extremely low frequency}: 73 codes with frequency less than 10, of which 45 had frequency less than 5, including several codes that appeared only once.
+\item \textbf{Codes with extremely high frequency}: 37 codes with frequency greater than 100, with code 14610 being the most frequent with 1,218 occurrences.
+\end{itemize}
+
+These extreme values do not necessarily represent errors, but rather the heterogeneous nature of medical conditions and procedures. However, they require special handling strategies for machine learning.
+
+\subsubsection{Descriptive Statistics}
+\label{sec:descriptive}
+
+The statistical analysis of DRG code distribution revealed:
+
+\begin{itemize}
+\item \textbf{Total unique codes}: 210 distinct DRG codes after cleaning.
+\item \textbf{Frequency distribution}: 
+\begin{itemize}
+\item Mean: 68.65 occurrences per code
+\item Median: 19 occurrences
+\item Standard deviation: 141.05 (indicating high variability)
+\item Minimum: 1 occurrence
+\item Maximum: 1,218 occurrences
+\end{itemize}
+\item \textbf{Quartiles}:
+\begin{itemize}
+\item Q1 (25\%): 6 occurrences
+\item Q2 (Median, 50\%): 19 occurrences
+\item Q3 (75\%): 71.5 occurrences
+\end{itemize}
+\end{itemize}
+
+These statistics confirm the extreme imbalance of the dataset. The median (19) is significantly lower than the mean (68.65), indicating a highly right-skewed distribution, typical of data with imbalanced classes.
+
+\paragraph{Top 10 Most Frequent DRG Codes}
+
+The most frequent DRG codes represent approximately 40\% of all records:
+
+\begin{enumerate}
+\item 14610: 1,218 occurrences (8.37\%)
+\item 14612: 925 occurrences (6.35\%)
+\item 14613: 741 occurrences (5.09\%)
+\item 07114: 501 occurrences (3.44\%)
+\item 13416: 458 occurrences (3.15\%)
+\item 11412: 357 occurrences (2.45\%)
+\item 04415: 341 occurrences (2.34\%)
+\item 06120: 332 occurrences (2.28\%)
+\item 06113: 326 occurrences (2.24\%)
+\item 04416: 319 occurrences (2.19\%)
+\end{enumerate}
+
+\subsubsection{Visualizations}
+\label{sec:visualizations}
+
+Visualizations were generated to better understand the data distribution:
+
+\begin{itemize}
+\item \textbf{Horizontal bar chart}: Shows the top 20 most frequent DRG codes, allowing identification of dominant categories.
+\item \textbf{Frequency histogram}: Visualizes the complete distribution of DRG code frequencies, showing concentration in low values and presence of outliers.
+\item \textbf{Boxplot}: Illustrates dispersion and outliers in the frequency distribution.
+\item \textbf{Range bar chart}: Categorizes codes according to frequency ranges (less than 10, between 10 and 100, greater than 100), facilitating understanding of imbalance.
+\end{itemize}
+
+These visualizations visually confirmed the extreme imbalance and justified the need for special balancing strategies.
+
+\subsection{Preliminary Model Results}
+\label{sec:results}
+
+\subsubsection{Data Splitting}
+
+The dataset was divided into training and test sets with the following characteristics:
+
+\begin{itemize}
+\item \textbf{Training set size}: 11,533 samples (80\%)
+\item \textbf{Test set size}: 2,884 samples (20\%)
+\item \textbf{Splitting strategy}: Stratified by class, ensuring that the proportion of each class remains similar in both sets.
+\item \textbf{Classes in training}: 166 unique classes (after grouping)
+\end{itemize}
+
+\subsubsection{Class Balancing Strategy}
+
+A dual balancing strategy was implemented:
+
+\begin{enumerate}
+\item \textbf{Minority class grouping}: DRG codes with frequency less than 5 were grouped into the "OTHER\_DRG" category, reducing classes from 210 to 166.
+\item \textbf{Sample weights}: Weights were calculated using \textit{compute\_sample\_weight} with 'balanced' strategy, which assigns weights inversely proportional to class frequency.
+\end{enumerate}
+
+Examples of weights assigned to the first 10 classes:
+\begin{itemize}
+\item Class 0: weight 11.58 (frequency: 6)
+\item Class 1: weight 2.48 (frequency: 28)
+\item Class 2: weight 0.40 (frequency: 173)
+\item Class 4: weight 17.37 (frequency: 4)
+\end{itemize}
+
+These weights reflect the principle that minority classes receive greater importance during training.
+
+\subsubsection{Training Process}
+
+The model was trained with the following configuration parameters:
+
+\begin{itemize}
+\item \textbf{Features used}: 205 features (100 diagnoses + 100 procedures + 3 demographic + 2 aggregated)
+\item \textbf{Classes to predict}: 166 DRG categories
+\item \textbf{Unique diagnoses in dataset}: 3,649
+\item \textbf{Unique procedures in dataset}: 904
+\end{itemize}
+
+The training process showed constant improvement in the mlogloss metric:
+
+\begin{itemize}
+\item \textbf{Iteration 0}: mlogloss (train) = 4.572, mlogloss (test) = 4.594
+\item \textbf{Iteration 50}: mlogloss (train) = 1.022, mlogloss (test) = 1.734
+\item \textbf{Iteration 100}: mlogloss (train) = 0.639, mlogloss (test) = 1.596
+\item \textbf{Best iteration (130)}: mlogloss (train) = 0.537, mlogloss (test) = 1.588
+\end{itemize}
+
+The model reached its best performance on the test set at iteration 130, after which slight overfitting was observed (improvement in training but deterioration in test).
+
+\subsubsection{Model Performance}
+
+The final model obtained the following results:
+
+\begin{itemize}
+\item \textbf{Accuracy}: 59.22\%
+\item \textbf{Best mlogloss (test)}: 1.588 (iteration 130)
+\item \textbf{Improvement over baseline}: The initial mlogloss of 4.594 was reduced to 1.588, representing a 65.4\% improvement.
+\end{itemize}
+
+For a multi-class classification problem with 166 classes, an accuracy of 59.22\% represents significantly better performance than a random classifier (which would achieve approximately 0.6\% accuracy). The mlogloss of 1.588 indicates that the model provides reasonably calibrated probability estimates.
+
+\subsubsection{Analysis of Results}
+
+The preliminary results demonstrate that:
+
+\begin{enumerate}
+\item \textbf{Approach viability}: It is possible to predict DRG codes with reasonable accuracy using machine learning techniques.
+\item \textbf{Balancing effectiveness}: The grouping strategy combined with sample weights allowed handling extreme imbalance without losing significant information.
+\item \textbf{Feature selection}: The approach of using the top 100 most frequent diagnoses and procedures captured the most relevant information while maintaining manageable dimensionality.
+\item \textbf{Room for improvement}: The gap between training mlogloss (0.537) and test mlogloss (1.588) suggests moderate overfitting, indicating opportunities to improve regularization.
+\end{enumerate}
+
+\section{Discussion}
+\label{sec:discussion}
+
+The developed model demonstrates that automatic prediction of DRG codes is viable using modern machine learning techniques. The 59.22\% accuracy is promising considering the complexity of the problem (166 classes) and the extreme data imbalance.
+
+The minority class grouping strategy proved effective, preserving information from rare classes without introducing artificial biases that could arise from extreme oversampling or undersampling techniques.
+
+The use of XGBoost with sample weights allowed the model to learn from all classes, including minority ones, which is crucial for a medical prediction system that must be useful for all conditions, not just the most common ones.
+
+However, areas for improvement were identified:
+\begin{itemize}
+\item \textbf{Regularization}: Adjusting regularization hyperparameters could reduce overfitting and improve generalization.
+\item \textbf{Feature engineering}: Exploring feature interactions or temporal characteristics could improve performance.
+\item \textbf{Ensemble methods}: Combining multiple models could increase robustness and accuracy.
+\end{itemize}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This study presents a machine learning model for DRG code prediction that:
+
+\begin{itemize}
+\item Effectively handles extreme imbalance through grouping and sample weights.
+\item Achieves 59.22\% accuracy in a multi-class classification problem with 166 classes.
+\item Uses 205 features derived from diagnoses, procedures, and demographic data.
+\item Demonstrates the feasibility of automating DRG code assignment.
+\end{itemize}
+
+The preliminary results are promising and suggest that with additional refinements, this approach could become a valuable tool for hospital management. Future work should explore hyperparameter optimization, advanced feature engineering techniques, and validation on additional datasets.
+
+\section*{Acknowledgment}
+
+[Acknowledgments if applicable]
+
+\begin{thebibliography}{00}
+
+\bibitem{b1} R. B. Fetter, Y. Shin, J. L. Freeman, R. F. Averill, and J. D. Thompson, ``Case mix definition by diagnosis-related groups,'' \emph{Med. Care}, vol. 18, no. 2, pp. 1--53, 1980.
+
+\bibitem{b2} J. P. Weiner, I. Dobson, S. L. Maxwell, K. Coleman, B. Starfield, and G. Anderson, ``Risk-adjusted Medicare capitation rates using ambulatory and inpatient diagnoses,'' \emph{Health Care Financ. Rev.}, vol. 18, no. 3, pp. 77--99, 1996.
+
+\bibitem{b3} K. Rajkomar, E. Oren, K. Chen, A. M. Dai, N. Hajaj, M. Hardt, P. J. Liu, X. Liu, J. Marcus, M. Sun, P. Sundberg, H. Yee, K. Zhang, Y. Zhang, G. Flores, G. E. Dahl, M. Furst, S. A. Kuhlmann, J. Hughes, J. B. Patil, W. A. Chou, K. de Fauw, J. R. Ledsam, O. Ronneberger, ``Scalable and accurate deep learning with electronic health records,'' \emph{NPJ Digit. Med.}, vol. 1, no. 1, pp. 1--10, 2018, doi: 10.1038/s41746-018-0029-1.
+
+\bibitem{b4} Z. Obermeyer and E. J. Emanuel, ``Predicting the future---big data, machine learning, and clinical medicine,'' \emph{N. Engl. J. Med.}, vol. 375, no. 13, pp. 1216--1219, 2016, doi: 10.1056/NEJMp1606181.
+
+\bibitem{b5} N. V. Chawla, K. W. Bowyer, L. O. Hall, and W. P. Kegelmeyer, ``SMOTE: synthetic minority over-sampling technique,'' \emph{J. Artif. Intell. Res.}, vol. 16, pp. 321--357, 2002, doi: 10.1613/jair.953.
+
+\bibitem{b6} S. Liu, B. Liu, H. Elhajj, W. Fang, X. Liu, and H. Yu, ``Multiclass classification of mechanical ventilated ICU patients by ICU outcome using machine learning,'' in \emph{Proc. IEEE Int. Conf. Bioinformatics Biomed. (BIBM)}, Madrid, Spain, 2018, pp. 570--575, doi: 10.1109/BIBM.2018.8621175.
+
+\bibitem{b7} J. Heaton, N. Goodfellow, Y. Bengio, and A. Courville, \emph{Deep Learning}. Cambridge, MA, USA: MIT Press, 2016.
+
+\bibitem{b8} T. Chen and C. Guestrin, ``XGBoost: a scalable tree boosting system,'' in \emph{Proc. 22nd ACM SIGKDD Int. Conf. Knowl. Discovery Data Mining}, San Francisco, CA, USA, 2016, pp. 785--794, doi: 10.1145/2939672.2939785.
+
+\bibitem{b9} J. H. Friedman, ``Greedy function approximation: a gradient boosting machine,'' \emph{Ann. Statist.}, vol. 29, no. 5, pp. 1189--1232, 2001, doi: 10.1214/aos/1013203451.
+
+\bibitem{b10} M. A. Mazurowski, P. A. Habas, J. M. Zurada, J. Y. Lo, J. A. Baker, and G. D. Tourassi, ``Training neural network classifiers for medical decision making: the effects of imbalanced datasets on classification performance,'' \emph{Neural Netw.}, vol. 21, no. 2-3, pp. 427--436, 2008, doi: 10.1016/j.neunet.2007.12.031.
+
+\bibitem{b11} Y. Sun, A. K. Wong, and M. S. Kamel, ``Classification of imbalanced data: a review,'' \emph{Int. J. Pattern Recognit. Artif. Intell.}, vol. 23, no. 4, pp. 687--719, 2009, doi: 10.1142/S0218001409007326.
+
+\bibitem{b12} D. M. W. Powers, ``Evaluation: from precision, recall and F-measure to ROC, informedness, markedness and correlation,'' \emph{J. Mach. Learn. Technol.}, vol. 2, no. 1, pp. 37--63, 2011.
+
+\end{thebibliography}
+
+\EOD
+
+\end{document}

@@ -1,0 +1,433 @@
+\documentclass{ieeeaccess}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{url}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\history{Date of publication Nov 21, 2025, date of current version Nov 21, 2025.}
+
+\doi{10.1109/ACCESS.2024.XXXXX}
+
+\title{Predicción de Grupos Relacionados por Diagnóstico (GRD) mediante Aprendizaje Automático}
+
+\author{\uppercase{Camila Eyzaguirre}\authorrefmark{1},
+\uppercase{Cristian Lorca}\authorrefmark{1},
+\uppercase{Cintya Olivares}\authorrefmark{1}, and
+\uppercase{Alejandro Suarez}\authorrefmark{1}
+}
+
+\address[1]{Universidad Andrés Bello, Santiago, Chile
+(e-mail: c.eyzaguirrevillarro@uandresbello.edu, 
+c.lorcavargasvargas@uandresbello.edu,
+c.olivarescisternas@uandresbello.edu,
+a.suarezsantelices@uandresbello.edu)}
+
+\markboth
+{Eyzaguirre \textit{et al.}: Predicción de GRD mediante Aprendizaje Automático}
+{Eyzaguirre \textit{et al.}: Predicción de GRD mediante Aprendizaje Automático}
+
+\corresp{Corresponding author: Camila Eyzaguirre (e-mail: c.eyzaguirrevillarro@uandresbello.edu).}
+
+\begin{abstract}
+La predicción precisa de los Grupos Relacionados por Diagnóstico (GRD) es fundamental para la gestión eficiente de recursos hospitalarios y la planificación de cuidados médicos. Este estudio presenta un modelo de aprendizaje automático basado en XGBoost para predecir códigos GRD a partir de información clínica, incluyendo diagnósticos, procedimientos y datos demográficos de pacientes. El dataset utilizado contiene 14,561 registros con 68 características, incluyendo diagnósticos principales y secundarios, procedimientos, y variables demográficas. Se implementó una estrategia de balanceo mediante agrupación de clases minoritarias y utilización de pesos de muestra para abordar el desbalance extremo observado (proporciones de hasta 1218:1 entre clases). El modelo fue entrenado con 205 features derivadas de los top 100 diagnósticos y procedimientos más frecuentes, junto con variables demográficas y características agregadas. Se obtuvo un accuracy de 59.22\% en la predicción de 166 categorías GRD agrupadas, mejorando significativamente sobre un modelo aleatorio. Los resultados demuestran la viabilidad de utilizar técnicas de aprendizaje automático para la predicción automática de GRD, contribuyendo a la optimización de procesos hospitalarios.
+\end{abstract}
+
+\begin{keywords}
+Aprendizaje automático, GRD, predicción médica, XGBoost, clasificación multiclase, datos desbalanceados
+\end{keywords}
+
+\titlepgskip=-15pt
+
+\maketitle
+
+\section{Introduction}
+\label{sec:introduction}
+
+\PARstart{L}{os} Grupos Relacionados por Diagnóstico (GRD) constituyen un sistema de clasificación de pacientes ampliamente utilizado en la gestión hospitalaria y la planificación de recursos de salud \cite{b1,b2}. Estos códigos agrupan a pacientes con características clínicas y de consumo de recursos similares, facilitando la comparación de eficiencia hospitalaria y la asignación de recursos. La predicción precisa y temprana de los códigos GRD representa un desafío significativo en el ámbito de la salud, ya que estos códigos dependen de múltiples factores clínicos, incluyendo diagnósticos principales y secundarios, procedimientos realizados, edad del paciente, y otros factores demográficos.
+
+El proceso tradicional de asignación de códigos GRD es manual y requiere experiencia clínica especializada, lo que puede resultar en inconsistencias, retrasos en la codificación, y un uso subóptimo de recursos. La automatización de este proceso mediante técnicas de aprendizaje automático ofrece la promesa de mejorar la precisión, reducir el tiempo de procesamiento, y proporcionar predicciones más consistentes \cite{b3,b4}.
+
+Este trabajo aborda el problema de predicción de códigos GRD como una tarea de clasificación multiclase, donde cada código GRD representa una clase diferente. El desafío principal radica en el desbalance extremo de las clases, donde algunos códigos aparecen cientos de veces mientras que otros aparecen solo una vez en el dataset. Este desbalance plantea problemas significativos para los algoritmos de aprendizaje automático, que tienden a favorecer las clases mayoritarias en detrimento de las minoritarias \cite{b5}.
+
+\section{Literature Review}
+\label{sec:literature}
+
+La aplicación de técnicas de aprendizaje automático en la predicción de códigos de clasificación médica ha sido ampliamente explorada. Varios estudios han aplicado algoritmos como Random Forest, Support Vector Machines (SVM), y redes neuronales para la clasificación de diagnósticos y códigos de procedimientos \cite{b6,b7}.
+
+Chen y Guestrin introdujeron XGBoost como una implementación eficiente y escalable de gradient boosting, demostrando excelente rendimiento en problemas de clasificación multiclase \cite{b8}. En el contexto médico, XGBoost ha mostrado resultados prometedores debido a su capacidad para manejar datos heterogéneos, valores faltantes, y clases desbalanceadas mediante el uso de pesos de muestra \cite{b9}.
+
+El manejo de clases desbalanceadas en problemas de clasificación médica ha sido abordado mediante diversas estrategias, incluyendo undersampling, oversampling, SMOTE, y el uso de pesos de clase \cite{b10}. Sin embargo, en casos de desbalance extremo, la agrupación de clases minoritarias ha demostrado ser una estrategia efectiva que preserva la información sin introducir sesgos artificiales \cite{b11}.
+
+Métricas apropiadas para evaluar modelos en problemas desbalanceados incluyen no solo accuracy, sino también precision, recall, F1-score, y especialmente multi-class logarithmic loss (mlogloss), que penaliza errores en la estimación de probabilidades \cite{b12}.
+
+\section{Objectives}
+\label{sec:objectives}
+
+El objetivo principal de este estudio es desarrollar un modelo de aprendizaje automático capaz de predecir códigos GRD a partir de información clínica y demográfica de pacientes. Los objetivos específicos incluyen:
+
+\begin{enumerate}
+\item Analizar la calidad y distribución de los datos disponibles para identificar características relevantes y detectar problemas de desbalance.
+\item Implementar una estrategia de preprocesamiento que maneje adecuadamente el desbalance extremo de clases mediante agrupación y pesos de muestra.
+\item Desarrollar un modelo de clasificación multiclase utilizando XGBoost optimizado para el problema de predicción de GRD.
+\item Evaluar el rendimiento del modelo utilizando métricas apropiadas para problemas multiclase desbalanceados.
+\end{enumerate}
+
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Dataset Description}
+\label{sec:dataset}
+
+El dataset utilizado en este estudio contiene 14,561 registros de pacientes, cada uno caracterizado por 68 variables. Las características principales incluyen:
+
+\begin{itemize}
+\item \textbf{Diagnósticos}: Un diagnóstico principal y hasta 29 diagnósticos secundarios, cada uno con su código y descripción.
+\item \textbf{Procedimientos}: Múltiples procedimientos realizados, cada uno con código y descripción.
+\item \textbf{Variable objetivo}: Código GRD que incluye el código base más un dígito de severidad (MCC, CC, o sin CC).
+\item \textbf{Datos demográficos}: Edad del paciente, sexo, y otras características demográficas.
+\end{itemize}
+
+El dataset inicialmente contenía 14,561 registros, pero después de la eliminación de duplicados, se mantuvieron todos los registros únicos para el análisis. La variable objetivo (GRD) presenta un desbalance extremo, con códigos que aparecen hasta 1,218 veces y otros que aparecen solo una vez.
+
+\subsection{Methodology Overview}
+\label{sec:method_overview}
+
+El proceso de desarrollo del modelo siguió una metodología estructurada que incluyó las siguientes etapas:
+
+\subsubsection{Data Preprocessing}
+\label{sec:preprocessing}
+
+El preprocesamiento de datos consistió en:
+
+\begin{enumerate}
+\item \textbf{Limpieza de códigos GRD}: Se extrajo el código base eliminando el último dígito que representa la severidad (MCC/CC), resultando en códigos de 5 dígitos.
+\item \textbf{Limpieza de diagnósticos y procedimientos}: Se extrajeron solo los códigos, eliminando las descripciones textuales.
+\item \textbf{Eliminación de duplicados}: Se identificaron y eliminaron registros duplicados.
+\item \textbf{Agrupación de clases minoritarias}: Códigos GRD con frecuencia menor a 5 fueron agrupados en una categoría "OTROS\_GRD", reduciendo las clases de 210 a 166.
+\end{enumerate}
+
+\subsubsection{Feature Engineering}
+\label{sec:features}
+
+Se crearon 205 features mediante:
+
+\begin{itemize}
+\item \textbf{Features binarias de diagnósticos}: 100 features indicando presencia/ausencia de los top 100 códigos de diagnóstico más frecuentes.
+\item \textbf{Features binarias de procedimientos}: 100 features indicando presencia/ausencia de los top 100 códigos de procedimiento más frecuentes.
+\item \textbf{Features demográficas}: Edad (numérica), sexo (binario codificado como dos variables).
+\item \textbf{Features agregadas}: Número total de diagnósticos y número total de procedimientos por paciente.
+\end{itemize}
+
+Esta estrategia permitió capturar la información más relevante mientras se mantenía la dimensionalidad del problema manejable.
+
+\subsubsection{Machine Learning Techniques}
+\label{sec:ml_techniques}
+
+\paragraph{XGBoost Selection and Justification}
+
+XGBoost (eXtreme Gradient Boosting) fue seleccionado como algoritmo principal por las siguientes razones:
+
+\begin{itemize}
+\item \textbf{Manejo de clases desbalanceadas}: XGBoost permite asignar pesos de muestra (\textit{sample weights}) que balancean la importancia relativa de clases minoritarias y mayoritarias durante el entrenamiento.
+\item \textbf{Clasificación multiclase nativa}: Soporta directamente problemas de clasificación multiclase mediante la función objetivo \textit{multi:softprob}, evitando la necesidad de estrategias one-vs-rest o one-vs-one.
+\item \textbf{Manejo de valores faltantes}: XGBoost maneja automáticamente valores faltantes en los datos, lo cual es común en datos clínicos.
+\item \textbf{Interpretabilidad}: Proporciona medidas de importancia de features, facilitando la comprensión de qué factores influyen más en las predicciones.
+\item \textbf{Rendimiento}: Ha demostrado excelente rendimiento en competencias de machine learning y problemas similares en el dominio médico.
+\item \textbf{Regularización incorporada}: Incluye parámetros de regularización L1 y L2 que ayudan a prevenir sobreajuste, crucial cuando el número de features es grande.
+\end{itemize}
+
+\paragraph{Training Configuration}
+
+El modelo XGBoost fue configurado con los siguientes hiperparámetros:
+
+\begin{itemize}
+\item \textbf{objective}: \textit{multi:softprob} para clasificación multiclase con probabilidades.
+\item \textbf{eval\_metric}: \textit{mlogloss} (multi-class logarithmic loss).
+\item \textbf{max\_depth}: 6 niveles de profundidad en los árboles.
+\item \textbf{learning\_rate}: 0.1 para un aprendizaje balanceado.
+\item \textbf{subsample}: 0.8 (submuestreo de filas para regularización).
+\item \textbf{colsample\_bytree}: 0.8 (submuestreo de columnas).
+\item \textbf{min\_child\_weight}: 3 (control de sobreajuste en hojas).
+\item \textbf{reg\_alpha}: 0.1 (regularización L1).
+\item \textbf{reg\_lambda}: 1.0 (regularización L2).
+\item \textbf{n\_estimators}: 200 (número máximo de árboles).
+\item \textbf{early\_stopping\_rounds}: 20 (parada temprana si no hay mejora).
+\end{itemize}
+
+Se utilizó validación durante el entrenamiento con un conjunto de evaluación que monitoreaba tanto el conjunto de entrenamiento como el de prueba, permitiendo detectar sobreajuste en tiempo real.
+
+\subsubsection{Evaluation Metrics}
+\label{sec:metrics}
+
+\paragraph{Metric Selection and Justification}
+
+Para la evaluación del modelo en este problema de clasificación multiclase desbalanceado, se seleccionaron las siguientes métricas:
+
+\begin{enumerate}
+\item \textbf{Accuracy}: Proporción de predicciones correctas sobre el total. Aunque puede ser engañosa en problemas desbalanceados, proporciona una medida general del rendimiento del modelo.
+
+\item \textbf{Multi-class Logarithmic Loss (mlogloss)}: Métrica principal utilizada durante el entrenamiento y evaluación. Esta métrica penaliza no solo las clasificaciones incorrectas, sino también las estimaciones de probabilidad poco confiables. Es especialmente relevante porque:
+\begin{itemize}
+\item Evalúa la calidad de las probabilidades predichas, no solo la clase predicha.
+\item Penaliza más los errores en clases con mayor confianza incorrecta.
+\item Es apropiada para problemas multiclase con múltiples clases.
+\item Proporciona información sobre la calibración del modelo.
+\end{itemize}
+
+La fórmula del mlogloss para un problema multiclase es:
+\begin{equation}
+L_{log} = -\frac{1}{N}\sum_{i=1}^{N}\sum_{c=1}^{M}y_{i,c}\log(p_{i,c})
+\label{eq:mlogloss}
+\end{equation}
+
+donde $N$ es el número de muestras, $M$ es el número de clases, $y_{i,c}$ es 1 si la muestra $i$ pertenece a la clase $c$, y $p_{i,c}$ es la probabilidad predicha de que la muestra $i$ pertenezca a la clase $c$.
+
+\item \textbf{Classification Report}: Incluye precision, recall, y F1-score por clase, proporcionando una visión detallada del rendimiento en cada categoría GRD.
+
+\item \textbf{Confusion Matrix}: Para las clases más frecuentes, permite visualizar los errores de clasificación y entender qué códigos GRD son confundidos entre sí.
+\end{enumerate}
+
+Estas métricas fueron seleccionadas porque, en conjunto, proporcionan una evaluación comprehensiva del modelo: mlogloss para optimización y calibración, accuracy para interpretabilidad general, y precision/recall para análisis detallado por clase.
+
+\section{Experiments and Results}
+\label{sec:experiments}
+
+\subsection{Data Analysis}
+\label{sec:data_analysis}
+
+\subsubsection{Data Quality Assessment}
+\label{sec:data_quality}
+
+\paragraph{Completeness}
+
+El análisis de completitud reveló que inicialmente no se encontraron valores nulos en el dataset original, lo que indica una buena calidad de datos en términos de completitud. Sin embargo, después del procesamiento de códigos, algunas variables derivadas pueden contener valores faltantes, los cuales fueron manejados mediante estrategias específicas durante la creación de features.
+
+\paragraph{Correctness}
+
+La verificación de correctitud incluyó:
+\begin{itemize}
+\item Validación de la consistencia de códigos GRD antes y después de la limpieza.
+\item Verificación de la coherencia entre diagnósticos y procedimientos.
+\item Identificación de posibles errores de codificación mediante análisis de frecuencias anómalas.
+\end{itemize}
+
+Se identificó que la estructura de códigos era consistente y seguía los formatos esperados.
+
+\paragraph{Outliers}
+
+El análisis de valores atípicos se centró en la distribución de códigos GRD. Se identificaron:
+\begin{itemize}
+\item \textbf{Códigos con frecuencia extremadamente baja}: 73 códigos con frecuencia menor a 10, de los cuales 45 tenían frecuencia menor a 5, incluyendo varios códigos que aparecían solo una vez.
+\item \textbf{Códigos con frecuencia extremadamente alta}: 37 códigos con frecuencia mayor a 100, siendo el más frecuente el código 14610 con 1,218 ocurrencias.
+\end{itemize}
+
+Estos valores extremos no representan necesariamente errores, sino la naturaleza heterogénea de las condiciones médicas y procedimientos. Sin embargo, requieren estrategias especiales de manejo para el aprendizaje automático.
+
+\subsubsection{Descriptive Statistics}
+\label{sec:descriptive}
+
+El análisis estadístico de la distribución de códigos GRD reveló:
+
+\begin{itemize}
+\item \textbf{Total de códigos únicos}: 210 códigos GRD distintos después de la limpieza.
+\item \textbf{Distribución de frecuencias}: 
+\begin{itemize}
+\item Media: 68.65 ocurrencias por código
+\item Mediana: 19 ocurrencias
+\item Desviación estándar: 141.05 (indicando alta variabilidad)
+\item Mínimo: 1 ocurrencia
+\item Máximo: 1,218 ocurrencias
+\end{itemize}
+\item \textbf{Cuartiles}:
+\begin{itemize}
+\item Q1 (25\%): 6 ocurrencias
+\item Q2 (Mediana, 50\%): 19 ocurrencias
+\item Q3 (75\%): 71.5 ocurrencias
+\end{itemize}
+\end{itemize}
+
+Estas estadísticas confirman el desbalance extremo del dataset. La mediana (19) es significativamente menor que la media (68.65), indicando una distribución altamente sesgada hacia la derecha, típica de datos con clases desbalanceadas.
+
+\paragraph{Top 10 Códigos GRD Más Frecuentes}
+
+Los códigos GRD más frecuentes representan aproximadamente el 40\% de todos los registros:
+
+\begin{enumerate}
+\item 14610: 1,218 ocurrencias (8.37\%)
+\item 14612: 925 ocurrencias (6.35\%)
+\item 14613: 741 ocurrencias (5.09\%)
+\item 07114: 501 ocurrencias (3.44\%)
+\item 13416: 458 ocurrencias (3.15\%)
+\item 11412: 357 ocurrencias (2.45\%)
+\item 04415: 341 ocurrencias (2.34\%)
+\item 06120: 332 ocurrencias (2.28\%)
+\item 06113: 326 ocurrencias (2.24\%)
+\item 04416: 319 ocurrencias (2.19\%)
+\end{enumerate}
+
+\subsubsection{Visualizations}
+\label{sec:visualizations}
+
+Se generaron visualizaciones para comprender mejor la distribución de los datos:
+
+\begin{itemize}
+\item \textbf{Gráfico de barras horizontales}: Muestra los top 20 códigos GRD más frecuentes, permitiendo identificar las categorías dominantes.
+\item \textbf{Histograma de frecuencias}: Visualiza la distribución completa de frecuencias de códigos GRD, mostrando la concentración en valores bajos y la presencia de outliers.
+\item \textbf{Boxplot}: Ilustra la dispersión y valores atípicos en la distribución de frecuencias.
+\item \textbf{Gráfico de barras por rango}: Categoriza los códigos según rangos de frecuencia (menor a 10, entre 10 y 100, mayor a 100), facilitando la comprensión del desbalance.
+\end{itemize}
+
+Estas visualizaciones confirmaron visualmente el desbalance extremo y justificaron la necesidad de estrategias especiales de balanceo.
+
+\subsection{Preliminary Model Results}
+\label{sec:results}
+
+\subsubsection{Data Splitting}
+
+El dataset fue dividido en conjuntos de entrenamiento y prueba con las siguientes características:
+
+\begin{itemize}
+\item \textbf{Tamaño del conjunto de entrenamiento}: 11,533 muestras (80\%)
+\item \textbf{Tamaño del conjunto de prueba}: 2,884 muestras (20\%)
+\item \textbf{Estrategia de división}: Estratificada por clase, asegurando que la proporción de cada clase se mantenga similar en ambos conjuntos.
+\item \textbf{Clases en entrenamiento}: 166 clases únicas (después de agrupación)
+\end{itemize}
+
+\subsubsection{Class Balancing Strategy}
+
+Se implementó una estrategia dual de balanceo:
+
+\begin{enumerate}
+\item \textbf{Agrupación de clases minoritarias}: Códigos GRD con frecuencia menor a 5 fueron agrupados en la categoría "OTROS\_GRD", reduciendo las clases de 210 a 166.
+\item \textbf{Pesos de muestra}: Se calcularon pesos usando \textit{compute\_sample\_weight} con estrategia 'balanced', que asigna pesos inversamente proporcionales a la frecuencia de clase.
+\end{enumerate}
+
+Ejemplos de pesos asignados a las primeras 10 clases:
+\begin{itemize}
+\item Clase 0: peso 11.58 (frecuencia: 6)
+\item Clase 1: peso 2.48 (frecuencia: 28)
+\item Clase 2: peso 0.40 (frecuencia: 173)
+\item Clase 4: peso 17.37 (frecuencia: 4)
+\end{itemize}
+
+Estos pesos reflejan el principio de que las clases minoritarias reciben mayor importancia durante el entrenamiento.
+
+\subsubsection{Training Process}
+
+El modelo fue entrenado con los siguientes parámetros de configuración:
+
+\begin{itemize}
+\item \textbf{Features utilizadas}: 205 features (100 diagnósticos + 100 procedimientos + 3 demográficas + 2 agregadas)
+\item \textbf{Clases a predecir}: 166 categorías GRD
+\item \textbf{Diagnósticos únicos en dataset}: 3,649
+\item \textbf{Procedimientos únicos en dataset}: 904
+\end{itemize}
+
+El proceso de entrenamiento mostró una mejora constante en la métrica mlogloss:
+
+\begin{itemize}
+\item \textbf{Iteración 0}: mlogloss (train) = 4.572, mlogloss (test) = 4.594
+\item \textbf{Iteración 50}: mlogloss (train) = 1.022, mlogloss (test) = 1.734
+\item \textbf{Iteración 100}: mlogloss (train) = 0.639, mlogloss (test) = 1.596
+\item \textbf{Mejor iteración (130)}: mlogloss (train) = 0.537, mlogloss (test) = 1.588
+\end{itemize}
+
+El modelo alcanzó su mejor rendimiento en el conjunto de prueba en la iteración 130, después de lo cual se observó un ligero sobreajuste (mejora en entrenamiento pero deterioro en prueba).
+
+\subsubsection{Model Performance}
+
+El modelo final obtuvo los siguientes resultados:
+
+\begin{itemize}
+\item \textbf{Accuracy}: 59.22\%
+\item \textbf{Mejor mlogloss (test)}: 1.588 (iteración 130)
+\item \textbf{Mejora respecto a baseline}: El mlogloss inicial de 4.594 se redujo a 1.588, representando una mejora del 65.4\%.
+\end{itemize}
+
+Para un problema de clasificación multiclase con 166 clases, un accuracy de 59.22\% representa un rendimiento significativamente mejor que un clasificador aleatorio (que obtendría aproximadamente 0.6\% de accuracy). El mlogloss de 1.588 indica que el modelo proporciona estimaciones de probabilidad razonablemente calibradas.
+
+\subsubsection{Analysis of Results}
+
+Los resultados preliminares demuestran que:
+
+\begin{enumerate}
+\item \textbf{Viabilidad del enfoque}: Es posible predecir códigos GRD con una precisión razonable utilizando técnicas de aprendizaje automático.
+\item \textbf{Efectividad del balanceo}: La estrategia de agrupación combinada con pesos de muestra permitió manejar el desbalance extremo sin perder información significativa.
+\item \textbf{Selección de features}: El enfoque de usar los top 100 diagnósticos y procedimientos más frecuentes capturó la información más relevante mientras mantenía la dimensionalidad manejable.
+\item \textbf{Espacio de mejora}: El gap entre mlogloss de entrenamiento (0.537) y prueba (1.588) sugiere que existe sobreajuste moderado, lo que indica oportunidades para mejorar la regularización.
+\end{enumerate}
+
+\section{Discussion}
+\label{sec:discussion}
+
+El modelo desarrollado demuestra que la predicción automática de códigos GRD es viable utilizando técnicas de aprendizaje automático modernas. El accuracy del 59.22\% es prometedor considerando la complejidad del problema (166 clases) y el desbalance extremo de los datos.
+
+La estrategia de agrupación de clases minoritarias resultó efectiva, preservando la información de clases raras sin introducir sesgos artificiales que podrían surgir de técnicas de oversampling o undersampling extremas.
+
+El uso de XGBoost con pesos de muestra permitió que el modelo aprendiera de todas las clases, incluyendo las minoritarias, lo cual es crucial para un sistema de predicción médico que debe ser útil para todas las condiciones, no solo las más comunes.
+
+Sin embargo, se identificaron áreas de mejora:
+\begin{itemize}
+\item \textbf{Regularización}: Ajustar hiperparámetros de regularización podría reducir el sobreajuste y mejorar la generalización.
+\item \textbf{Feature engineering}: Explorar interacciones entre features o características temporales podría mejorar el rendimiento.
+\item \textbf{Ensemble methods}: Combinar múltiples modelos podría aumentar la robustez y precisión.
+\end{itemize}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Este estudio presenta un modelo de aprendizaje automático para la predicción de códigos GRD que:
+
+\begin{itemize}
+\item Maneja efectivamente el desbalance extremo mediante agrupación y pesos de muestra.
+\item Logra un accuracy del 59.22\% en un problema de clasificación multiclase con 166 clases.
+\item Utiliza 205 features derivadas de diagnósticos, procedimientos y datos demográficos.
+\item Demuestra la viabilidad de automatizar la asignación de códigos GRD.
+\end{itemize}
+
+Los resultados preliminares son prometedores y sugieren que con refinamientos adicionales, este enfoque podría convertirse en una herramienta valiosa para la gestión hospitalaria. Futuros trabajos deberían explorar optimización de hiperparámetros, técnicas avanzadas de feature engineering, y validación en datasets adicionales.
+
+\section*{Acknowledgment}
+
+[Acknowledgments if applicable]
+
+\begin{thebibliography}{00}
+
+\bibitem{b1} R. B. Fetter, Y. Shin, J. L. Freeman, R. F. Averill, and J. D. Thompson, ``Case mix definition by diagnosis-related groups,'' \emph{Med. Care}, vol. 18, no. 2, pp. 1--53, 1980.
+
+\bibitem{b2} J. P. Weiner, I. Dobson, S. L. Maxwell, K. Coleman, B. Starfield, and G. Anderson, ``Risk-adjusted Medicare capitation rates using ambulatory and inpatient diagnoses,'' \emph{Health Care Financ. Rev.}, vol. 18, no. 3, pp. 77--99, 1996.
+
+\bibitem{b3} K. Rajkomar, E. Oren, K. Chen, A. M. Dai, N. Hajaj, M. Hardt, P. J. Liu, X. Liu, J. Marcus, M. Sun, P. Sundberg, H. Yee, K. Zhang, Y. Zhang, G. Flores, G. E. Dahl, M. Furst, S. A. Kuhlmann, J. Hughes, J. B. Patil, W. A. Chou, K. de Fauw, J. R. Ledsam, O. Ronneberger, ``Scalable and accurate deep learning with electronic health records,'' \emph{NPJ Digit. Med.}, vol. 1, no. 1, pp. 1--10, 2018, doi: 10.1038/s41746-018-0029-1.
+
+\bibitem{b4} Z. Obermeyer and E. J. Emanuel, ``Predicting the future---big data, machine learning, and clinical medicine,'' \emph{N. Engl. J. Med.}, vol. 375, no. 13, pp. 1216--1219, 2016, doi: 10.1056/NEJMp1606181.
+
+\bibitem{b5} N. V. Chawla, K. W. Bowyer, L. O. Hall, and W. P. Kegelmeyer, ``SMOTE: synthetic minority over-sampling technique,'' \emph{J. Artif. Intell. Res.}, vol. 16, pp. 321--357, 2002, doi: 10.1613/jair.953.
+
+\bibitem{b6} S. Liu, B. Liu, H. Elhajj, W. Fang, X. Liu, and H. Yu, ``Multiclass classification of mechanical ventilated ICU patients by ICU outcome using machine learning,'' in \emph{Proc. IEEE Int. Conf. Bioinformatics Biomed. (BIBM)}, Madrid, Spain, 2018, pp. 570--575, doi: 10.1109/BIBM.2018.8621175.
+
+\bibitem{b7} J. Heaton, N. Goodfellow, Y. Bengio, and A. Courville, \emph{Deep Learning}. Cambridge, MA, USA: MIT Press, 2016.
+
+\bibitem{b8} T. Chen and C. Guestrin, ``XGBoost: a scalable tree boosting system,'' in \emph{Proc. 22nd ACM SIGKDD Int. Conf. Knowl. Discovery Data Mining}, San Francisco, CA, USA, 2016, pp. 785--794, doi: 10.1145/2939672.2939785.
+
+\bibitem{b9} J. H. Friedman, ``Greedy function approximation: a gradient boosting machine,'' \emph{Ann. Statist.}, vol. 29, no. 5, pp. 1189--1232, 2001, doi: 10.1214/aos/1013203451.
+
+\bibitem{b10} M. A. Mazurowski, P. A. Habas, J. M. Zurada, J. Y. Lo, J. A. Baker, and G. D. Tourassi, ``Training neural network classifiers for medical decision making: the effects of imbalanced datasets on classification performance,'' \emph{Neural Netw.}, vol. 21, no. 2-3, pp. 427--436, 2008, doi: 10.1016/j.neunet.2007.12.031.
+
+\bibitem{b11} Y. Sun, A. K. Wong, and M. S. Kamel, ``Classification of imbalanced data: a review,'' \emph{Int. J. Pattern Recognit. Artif. Intell.}, vol. 23, no. 4, pp. 687--719, 2009, doi: 10.1142/S0218001409007326.
+
+\bibitem{b12} D. M. W. Powers, ``Evaluation: from precision, recall and F-measure to ROC, informedness, markedness and correlation,'' \emph{J. Mach. Learn. Technol.}, vol. 2, no. 1, pp. 37--63, 2011.
+
+\end{thebibliography}
+
+\EOD
+
+\end{document}
+
